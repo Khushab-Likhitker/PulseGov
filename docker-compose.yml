@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  # Databases
+  postgres:
+    image: postgres:15-alpine
+    container_name: pulsegov-postgres
+    environment:
+      POSTGRES_USER: pulsegov
+      POSTGRES_PASSWORD: pulsegov123
+      POSTGRES_DB: pulsegov
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/database/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pulsegov-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulsegov-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pulsegov-network
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: pulsegov-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/pulsegov123
+      NEO4J_PLUGINS: '["graph-data-science"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    networks:
+      - pulsegov-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: pulsegov-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: pulsegov
+      RABBITMQ_DEFAULT_PASS: pulsegov123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - pulsegov-network
+
+  # Backend Services
+  complaint-service:
+    build: ./backend/services/complaint-service
+    container_name: pulsegov-complaint-service
+    environment:
+      DATABASE_URL: postgresql://pulsegov:pulsegov123@postgres:5432/pulsegov
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  ai-classifier-service:
+    build: ./backend/services/ai-classifier-service
+    container_name: pulsegov-ai-classifier
+    environment:
+      MODEL_PATH: /app/models
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai-models/classifier:/app/models
+    depends_on:
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  routing-engine:
+    build: ./backend/services/routing-engine
+    container_name: pulsegov-routing-engine
+    environment:
+      DATABASE_URL: postgresql://pulsegov:pulsegov123@postgres:5432/pulsegov
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  sla-tracker:
+    build: ./backend/services/sla-tracker
+    container_name: pulsegov-sla-tracker
+    environment:
+      DATABASE_URL: postgresql://pulsegov:pulsegov123@postgres:5432/pulsegov
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  resolution-intelligence:
+    build: ./backend/services/resolution-intelligence
+    container_name: pulsegov-resolution-intelligence
+    environment:
+      DATABASE_URL: postgresql://pulsegov:pulsegov123@postgres:5432/pulsegov
+      NEO4J_URL: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: pulsegov123
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      PORT: 8002
+    ports:
+      - "8002:8002"
+    depends_on:
+      - postgres
+      - neo4j
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  notification-service:
+    build: ./backend/services/notification-service
+    container_name: pulsegov-notification-service
+    environment:
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://pulsegov:pulsegov123@rabbitmq:5672
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: ${SMTP_USER:-demo@pulsegov.com}
+      SMTP_PASS: ${SMTP_PASS:-demo123}
+      PORT: 3004
+    ports:
+      - "3004:3004"
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - pulsegov-network
+
+  # Frontend
+  frontend:
+    build: ./frontend
+    container_name: pulsegov-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - complaint-service
+      - routing-engine
+    networks:
+      - pulsegov-network
+
+  # API Gateway (Nginx)
+  api-gateway:
+    image: nginx:alpine
+    container_name: pulsegov-gateway
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - complaint-service
+      - routing-engine
+      - sla-tracker
+    networks:
+      - pulsegov-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  rabbitmq_data:
+
+networks:
+  pulsegov-network:
+    driver: bridge

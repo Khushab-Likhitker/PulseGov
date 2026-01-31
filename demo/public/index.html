@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseGov - AI-Powered Civic Governance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .btn-primary {
+      background: linear-gradient(to right, #0ea5e9, #0284c7);
+      transition: all 0.3s;
+    }
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 20px 40px -10px rgba(14, 165, 233, 0.5);
+    }
+  </style>
+</head>
+<body class="text-white">
+  <div id="app" class="container mx-auto p-8">
+    <!-- Landing Page -->
+    <div id="landing" class="min-h-screen flex items-center justify-center">
+      <div class="max-w-4xl w-full text-center">
+        <div class="inline-block mb-6">
+          <div class="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl">
+            <svg class="w-12 h-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+        </div>
+        
+        <h1 class="text-6xl font-bold mb-4 bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
+          PulseGov
+        </h1>
+        <p class="text-2xl text-white/60 mb-4">AI-Powered Civic Governance</p>
+        <p class="text-lg text-white/40 mb-12 max-w-2xl mx-auto">
+          Demo Version - Showcasing Resolution Intelligence & Predictive Analytics
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-6">
+          <div onclick="showPage('citizen')" class="glass-card p-8 hover:scale-105 transition-transform cursor-pointer group">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:shadow-2xl transition-all mx-auto">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">Citizen Portal</h3>
+            <p class="text-white/60">Submit and track complaints</p>
+          </div>
+
+          <div onclick="showPage('officer')" class="glass-card p-8 hover:scale-105 transition-transform cursor-pointer group">
+            <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:shadow-2xl transition-all mx-auto">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold mb-2">Officer Dashboard</h3>
+            <p class="text-white/60">AI-powered resolution hub</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Citizen Portal -->
+    <div id="citizen" class="hidden">
+      <div class="max-w-6xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h1 class="text-4xl font-bold mb-2">Citizen Portal</h1>
+            <p class="text-white/60">Track your civic grievances</p>
+          </div>
+          <button onclick="showPage('landing')" class="glass-card px-4 py-2 hover:bg-white/10">← Back</button>
+        </div>
+
+        <button onclick="toggleForm()" id="newBtn" class="btn-primary px-6 py-3 rounded-xl font-semibold mb-6">+ New Complaint</button>
+
+        <!-- Form -->
+        <div id="complaintForm" class="glass-card p-8 mb-8 hidden">
+          <h2 class="text-2xl font-bold mb-6">Submit New Complaint</h2>
+          <form onsubmit="submitComplaint(event)" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Title</label>
+              <input type="text" id="title" required class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white" placeholder="Brief description">
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-2">Description</label>
+              <textarea id="description" required rows="4" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white" placeholder="Detailed explanation"></textarea>
+            </div>
+            <button type="submit" class="btn-primary w-full px-6 py-3 rounded-xl font-semibold">Submit Complaint</button>
+          </form>
+        </div>
+
+        <!-- Complaints List -->
+        <div id="complaintsList"></div>
+      </div>
+    </div>
+
+    <!-- Officer Dashboard -->
+    <div id="officer" class="hidden">
+      <div class="max-w-7xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h1 class="text-4xl font-bold mb-2">Officer Dashboard</h1>
+            <p class="text-white/60">AI-powered resolution intelligence</p>
+          </div>
+          <button onclick="showPage('landing')" class=" glass-card px-4 py-2 hover:bg-white/10">← Back</button>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-8">
+          <div class="lg:col-span-1">
+            <div class="glass-card p-6">
+              <h2 class="text-xl font-bold mb-4">Assigned Complaints</h2>
+              <div id="officerComplaints" class="space-y-3"></div>
+            </div>
+          </div>
+          
+          <div class="lg:col-span-2">
+            <div id="complaintDetails"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentPage = 'landing';
+    let allComplaints = [];
+    let selectedComplaint = null;
+
+    function showPage(page) {
+      document.getElementById('landing').classList.add('hidden');
+      document.getElementById('citizen').classList.add('hidden');
+      document.getElementById('officer').classList.add('hidden');
+      document.getElementById(page).classList.remove('hidden');
+      currentPage = page;
+      
+      if (page === 'citizen') loadCitizenComplaints();
+      if (page === 'officer') loadOfficerComplaints();
+    }
+
+    function toggleForm() {
+      document.getElementById('complaintForm').classList.toggle('hidden');
+    }
+
+    async function submitComplaint(e) {
+      e.preventDefault();
+      const res = await fetch('/api/complaints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: document.getElementById('title').value,
+          description: document.getElementById('description').value,
+          citizen_id: 1
+        })
+      });
+      const data = await res.json();
+      alert(`Complaint submitted! ID: ${data.complaint.complaint_id}`);
+      document.getElementById('title').value = '';
+      document.getElementById('description').value = '';
+      toggleForm();
+      loadCitizenComplaints();
+    }
+
+    async function loadCitizenComplaints() {
+      const res = await fetch('/api/complaints?citizen_id=1');
+      const data = await res.json();
+      allComplaints = data.complaints;
+      
+      const html = allComplaints.map(c => `
+        <div class="glass-card p-6 hover:scale-[1.02] transition-transform">
+          <div class="flex items-center gap-3 mb-2">
+            <h3 class="text-xl font-bold">${c.title}</h3>
+            <span class="px-4 py-1 rounded-full text-sm font-medium ${getStatusColor(c.status)}">${c.status.toUpperCase()}</span>
+          </div>
+          <p class="text-white/60 text-sm mb-2">ID: ${c.complaint_id}</p>
+          <p class="text-white/80">${c.description}</p>
+          <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/10">
+            <div>
+              <p class="text-xs text-white/40">Category</p>
+              <p class="font-medium">${c.category_name || 'Pending'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-white/40">Assigned To</p>
+              <p class="font-medium">${c.assigned_officer_name || 'Pending'}</p>
+            </div>
+          </div>
+          ${c.resolution_text ? `
+            <div class="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+              <p class="text-xs text-green-400 mb-1">✓ RESOLVED</p>
+              <p class="text-white/80">${c.resolution_text}</p>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+      
+      document.getElementById('complaintsList').innerHTML = html || '<div class="glass-card p-12 text-center text-white/60">No complaints yet</div>';
+    }
+
+    async function loadOfficerComplaints() {
+      const res = await fetch('/api/complaints?officer_id=3&status=assigned');
+      const data = await res.json();
+      allComplaints = data.complaints;
+      
+      const html = allComplaints.map(c => `
+        <div onclick="selectComplaint(${c.id})" class="p-4 rounded-xl border cursor-pointer bg-white/5 border-white/10 hover:bg-white/10 transition-all ${selectedComplaint?.id === c.id ? '!bg-blue-500/20 !border-blue-500' : ''}">
+          <p class="font-semibold text-sm mb-1">${c.complaint_id}</p>
+          <p class="text-white/80 text-sm">${c.title}</p>
+        </div>
+      `).join('');
+      
+      document.getElementById('officerComplaints').innerHTML = html || '<p class="text-center text-white/40 py-12">No pending complaints</p>';
+    }
+
+    async function selectComplaint(id) {
+      selectedComplaint = allComplaints.find(c => c.id === id);
+      loadOfficerComplaints(); // Re-render to highlight
+      
+      const res = await fetch(`/api/resolution/suggestions/${id}`);
+      const suggestions = await res.json();
+      
+      const html = `
+        <div class="space-y-6">
+          <div class="glass-card p-6">
+            <div class="flex justify-between mb-4">
+              <div>
+                <h2 class="text-2xl font-bold mb-2">${selectedComplaint.title}</h2>
+                <p class="text-white/60 text-sm">ID: ${selectedComplaint.complaint_id}</p>
+              </div>
+              <button onclick="resolveComplaint()" class="btn-primary px-6 py-3 rounded-xl font-semibold">✓ Mark Resolved</button>
+            </div>
+            <p class="text-white/80">${selectedComplaint.description}</p>
+          </div>
+
+          ${suggestions.similar_complaints?.length > 0 ? `
+            <div class="glass-card p-6 border-2 border-blue-500/30">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center text-xl">🤖</div>
+                <div>
+                  <h3 class="text-xl font-bold text-blue-400">AI Resolution Suggestions</h3>
+                  <p class="text-sm text-white/60">Based on ${suggestions.similar_complaints.length} similar resolved cases</p>
+                </div>
+              </div>
+
+              <div class="mb-6">
+                <h4 class="font-semibold mb-3 text-green-400">✓ Recommended Actions:</h4>
+                <div class="space-y-2">
+                  ${suggestions.suggestions.suggested_actions.map((action, i) => `
+                    <div class="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <span class="text-green-400 font-bold">${i + 1}.</span>
+                      <p class="text-white/90">${action}</p>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-4 mb-6 p-4 bg-white/5 rounded-xl">
+                <div>
+                  <p class="text-xs text-white/40 mb-1">Est. Time</p>
+                  <p class="font-bold text-lg text-blue-400">${suggestions.suggestions.estimated_time_hours}h</p>
+                </div>
+                <div>
+                  <p class="text-xs text-white/40 mb-1">Success</p>
+                  <p class="font-bold text-lg text-green-400">${(suggestions.suggestions.success_probability * 100).toFixed(0)}%</p>
+                </div>
+                <div>
+                  <p class="text-xs text-white/40 mb-1">Cases</p>
+                  <p class="font-bold text-lg text-blue-400">${suggestions.suggestions.based_on_cases}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 class="font-semibold mb-3 text-blue-400">🔍 Similar Resolved Cases:</h4>
+                <div class="space-y-3 max-h-60 overflow-y-auto">
+                  ${suggestions.similar_complaints.map(sc => `
+                    <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <div class="flex justify-between mb-2">
+                        <p class="font-medium text-sm">${sc.complaint_id}</p>
+                        <span class="text-xs text-green-400">✓ Resolved in ${sc.time_to_resolve_hours}h</span>
+                      </div>
+                      <p class="text-sm text-white/80 mb-2">${sc.title}</p>
+                      <div class="p-2 bg-white/5 rounded text-xs text-white/70">
+                        <strong>Resolution:</strong> ${sc.resolution_text}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          ` : '<div class="glass-card p-8 text-center text-white/60">No similar cases found yet</div>'}
+        </div>
+      `;
+      
+      document.getElementById('complaintDetails').innerHTML = html;
+    }
+
+    async function resolveComplaint() {
+      const resolution = prompt('Enter resolution details:');
+      if (!resolution) return;
+      
+      await fetch(`/api/complaints/${selectedComplaint.complaint_id}/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution_text: resolution, officer_id: 3 })
+      });
+      
+      alert('Complaint resolved successfully!');
+      selectedComplaint = null;
+      loadOfficerComplaints();
+      document.getElementById('complaintDetails').innerHTML = '';
+    }
+
+    function getStatusColor(status) {
+      const colors = {
+        pending: 'bg-yellow-500/20 text-yellow-400',
+        assigned: 'bg-blue-500/20 text-blue-400',
+        in_progress: 'bg-purple-500/20 text-purple-400',
+        resolved: 'bg-green-500/20 text-green-400'
+      };
+      return colors[status] || 'bg-gray-500/20 text-gray-400';
+    }
+  </script>
+</body>
+</html>
