@@ -1,11 +1,11 @@
-import amqp, { Connection, Channel } from 'amqplib';
+import amqp from 'amqplib';
 
-let connection: Connection;
-let channel: Channel;
+let channel: amqp.Channel;
+let connection: any;
 
 export async function initializeRabbitMQ() {
     try {
-        connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
+        connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672') as unknown as amqp.Connection;
         channel = await connection.createChannel();
 
         // Declare exchanges

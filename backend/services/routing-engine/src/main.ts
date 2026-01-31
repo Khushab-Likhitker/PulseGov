@@ -19,7 +19,7 @@ let rabbitChannel: amqp.Channel;
 interface Officer {
     id: number;
     name: string;
-    department_id: number;
+    department_id: string; // Changed to string for UUID
     expertise: string[];
     rating: number;
     active_complaints_count: number;
@@ -40,60 +40,82 @@ class SmartRouter {
      * 2. Officer expertise
      * 3. Current workload
      * 4. Past performance (rating)
-     * 5. Geographic proximity
      */
     async findBestOfficer(
-        departmentId: number,
+        departmentId: string, // UUID
         categoryName: string,
         complaintLocation?: ComplaintLocation
     ): Promise<Officer | null> {
-        // Get all officers from department
-        const result = await db.query(
-            `SELECT * FROM users 
-       WHERE department_id = $1 AND role = 'officer' 
-       ORDER BY active_complaints_count ASC, rating DESC 
-       LIMIT 10`,
-            [departmentId]
-        );
+        try {
+            // Get all officers from department
+            // Note: cast department_id to uuid if necessary, depending on DB schema consistency
+            const result = await db.query(
+                `SELECT * FROM users 
+                 WHERE department_id::text = $1 AND role = 'officer' 
+                 ORDER BY active_complaints_count ASC, rating DESC 
+                 LIMIT 10`,
+                [departmentId]
+            );
 
-        const officers: Officer[] = result.rows;
+            const officers: Officer[] = result.rows;
 
-        if (officers.length === 0) {
+            if (officers.length === 0) {
+                console.log(`⚠️ No officers found for department ${departmentId}`);
+                return null;
+            }
+
+            // Score each officer
+            const scoredOfficers = officers.map(officer => {
+                let score = 0;
+
+                // 1. Workload score (lower is better) - 40% weight
+                const maxWorkload = Math.max(...officers.map(o => o.active_complaints_count), 1);
+                const workloadScore = (1 - officer.active_complaints_count / maxWorkload) * 40;
+                score += workloadScore;
+
+                // 2. Rating score - 30% weight
+                const ratingScore = (officer.rating / 5.0) * 30;
+                score += ratingScore;
+
+                // 3. Expertise match - 20% weight
+                const keywords = categoryName.toLowerCase().split(' ');
+                const expertiseMatch = officer.expertise?.some(exp =>
+                    keywords.some(kw => exp.toLowerCase().includes(kw))
+                );
+                score += expertiseMatch ? 20 : 0;
+
+                // 4. Resolution time score (faster is better) - 10% weight
+                const avgTime = officer.avg_resolution_time_hours || 48;
+                const timeScore = Math.max(0, (100 - avgTime) / 100) * 10;
+                score += timeScore;
+
+                return { officer, score };
+            });
+
+            // Sort by score descending
+            scoredOfficers.sort((a, b) => b.score - a.score);
+
+            return scoredOfficers[0].officer;
+        } catch (error) {
+            console.error("Error finding best officer:", error);
             return null;
         }
+    }
 
-        // Score each officer
-        const scoredOfficers = officers.map(officer => {
-            let score = 0;
-
-            // 1. Workload score (lower is better) - 40% weight
-            const maxWorkload = Math.max(...officers.map(o => o.active_complaints_count), 1);
-            const workloadScore = (1 - officer.active_complaints_count / maxWorkload) * 40;
-            score += workloadScore;
-
-            // 2. Rating score - 30% weight
-            const ratingScore = (officer.rating / 5.0) * 30;
-            score += ratingScore;
-
-            // 3. Expertise match - 20% weight
-            const keywords = categoryName.toLowerCase().split(' ');
-            const expertiseMatch = officer.expertise?.some(exp =>
-                keywords.some(kw => exp.toLowerCase().includes(kw))
+    async getDepartmentIdByCode(code: string): Promise<string | null> {
+        try {
+            const result = await db.query(
+                "SELECT department_id FROM departments WHERE department_code = $1",
+                [code]
             );
-            score += expertiseMatch ? 20 : 0;
-
-            // 4. Resolution time score (faster is better) - 10% weight
-            const avgTime = officer.avg_resolution_time_hours || 48;
-            const timeScore = Math.max(0, (100 - avgTime) / 100) * 10;
-            score += timeScore;
-
-            return { officer, score };
-        });
-
-        // Sort by score descending
-        scoredOfficers.sort((a, b) => b.score - a.score);
-
-        return scoredOfficers[0].officer;
+            if (result.rows.length > 0) {
+                return result.rows[0].department_id;
+            }
+            return null;
+        } catch (error) {
+            console.error(`Error resolving department code ${code}:`, error);
+            return null;
+        }
     }
 }
 
@@ -117,60 +139,76 @@ async function startConsumer() {
 
                 // Skip if needs manual review
                 if (data.needs_manual_review) {
-                    console.log(`⚠️  Complaint ${data.complaint_id} needs manual review`);
+                    console.log(`⚠️  Complaint ${data.complaint_id} needs manual review. Skipping auto-routing.`);
                     rabbitChannel.ack(msg);
                     return;
                 }
 
-                // Find best officer
+                // Resolve Department Code to UUID
+                const departmentCode = data.department_code;
+                if (!departmentCode) {
+                    console.error("❌ Missing department_code in message");
+                    rabbitChannel.nack(msg, false, false); // Dead letter
+                    return;
+                }
+
+                const departmentId = await router.getDepartmentIdByCode(departmentCode);
+                if (!departmentId) {
+                    console.error(`❌ Could not resolve department code: ${departmentCode}`);
+                    // Potentially requeue or log to dead letter
+                    rabbitChannel.ack(msg);
+                    return;
+                }
+
+                // Find best officer using the resolved UUID
                 const officer = await router.findBestOfficer(
-                    data.department_id,
-                    data.category_name
+                    departmentId,
+                    data.department_name || 'General' // Use name for basic keyword matching if needed
                 );
 
                 if (!officer) {
-                    console.log(`❌ No officer available for department ${data.department_id}`);
+                    console.log(`❌ No officer available for department ${departmentCode} (${departmentId})`);
                     rabbitChannel.ack(msg);
                     return;
                 }
 
                 // Update complaint in database
+                // Note: Ensure complaints table expects UUID for department_id if schema changed, 
+                // or handle the mismatch. Assuming complaints.department_id is compatible or castable.
                 await db.query(
                     `UPDATE complaints 
-           SET category_id = $1, 
-               category_confidence = $2, 
-               department_id = $3, 
-               assigned_officer_id = $4, 
-               status = 'assigned',
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = $5`,
+                     SET category_confidence = $1, 
+                         department_id = $2, 
+                         assigned_officer_id = $3, 
+                         status = 'assigned',
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE complaint_id = $4`,
                     [
-                        data.category_id,
-                        data.category_confidence,
-                        data.department_id,
+                        data.confidence,
+                        departmentId, // UUID
                         officer.id,
-                        data.complaintId
+                        data.complaint_id // Using string ID
                     ]
                 );
 
                 // Update officer workload
                 await db.query(
                     `UPDATE users 
-           SET active_complaints_count = active_complaints_count + 1 
-           WHERE id = $1`,
+                     SET active_complaints_count = active_complaints_count + 1 
+                     WHERE id = $1`,
                     [officer.id]
                 );
 
                 // Log history
                 await db.query(
                     `INSERT INTO complaint_history 
-           (complaint_id, action, performed_by, notes) 
-           VALUES ($1, $2, $3, $4)`,
+                     (complaint_id, action, performed_by, notes) 
+                     VALUES ((SELECT id FROM complaints WHERE complaint_id = $1), $2, $3, $4)`,
                     [
-                        data.complaintId,
+                        data.complaint_id,
                         'ROUTED',
                         officer.id,
-                        `Assigned to ${officer.name} from department ${data.department_id}`
+                        `Auto-assigned to ${officer.name} (${departmentCode}) based on AI classification.`
                     ]
                 );
 
@@ -181,7 +219,8 @@ async function startConsumer() {
                     Buffer.from(JSON.stringify({
                         ...data,
                         officer_id: officer.id,
-                        officer_name: officer.name
+                        officer_name: officer.name,
+                        routing_notes: `Routed to ${officer.name} in ${data.department_name}`
                     })),
                     { persistent: true }
                 );
@@ -190,14 +229,16 @@ async function startConsumer() {
                 rabbitChannel.ack(msg);
             } catch (error) {
                 console.error('❌ Routing error:', error);
-                rabbitChannel.nack(msg, false, true);
+                // Requeue only if it's a transient error
+                rabbitChannel.nack(msg, false, false);
             }
         });
 
         console.log('🎧 Routing engine listening for classified complaints...');
     } catch (error) {
         console.error('❌ RabbitMQ connection failed:', error);
-        throw error;
+        // Do not throw, keep retry logic if needed, or let container restart
+        setTimeout(startConsumer, 5000);
     }
 }
 
@@ -206,11 +247,12 @@ async function initialize() {
     try {
         // PostgreSQL
         db = new Pool({ connectionString: process.env.DATABASE_URL });
-        await db.query('SELECT NOW()');
-        console.log('✅ PostgreSQL connected');
+        const res = await db.query('SELECT NOW()');
+        console.log('✅ PostgreSQL connected at', res.rows[0].now);
 
         // Redis
         redis = createClient({ url: process.env.REDIS_URL });
+        redis.on('error', (err) => console.error('Redis Client Error', err));
         await redis.connect();
         console.log('✅ Redis connected');
 

@@ -1,205 +1,157 @@
-import numpy as np
 import re
 from typing import Dict, List, Tuple
-import json
 
-class ComplaintClassifier:
+class ComplaintClassificationAgent:
     """
-    Hybrid Rule-based + ML Classifier for complaints
-    Phase 1: Rule-based keyword matching
-    Phase 2: Could integrate BERT/TensorFlow model for advanced classification
+    Rule-Based AI Agent for Citizen Grievance Redressal.
+    Deterministic, explainable, and audit-ready.
     """
     
-    def __init__(self, model_path: str = './models'):
-        self.model_path = model_path
+    def __init__(self):
+        self.confidence_threshold = 0.7
+        # Define department rules (Keywords -> Department Code)
+        self.department_rules = self._load_rules()
         
-        # Load category definitions (in production, load from database)
-        self.categories = self._load_categories()
-        self.confidence_threshold = 0.75
-        
-    def _load_categories(self) -> List[Dict]:
-        """Load category definitions with keywords"""
+    def _load_rules(self) -> List[Dict]:
+        """Load keyword mapping for all 13 departments"""
         return [
             {
-                "id": 1,
-                "name": "Streetlight Not Working",
-                "code": "LIGHT-001",
-                "department_id": 1,
-                "keywords": ["streetlight", "street light", "light", "bulb", "dark", "night", "lamp post"],
-                "priority": "medium"
+                "code": "MUN",
+                "name": "Municipal Services",
+                "keywords": ["garbage", "trash", "waste", "sanitation", "cleanliness", "dustbin", "rubbish", "sweeping", "debris"]
             },
             {
-                "id": 2,
-                "name": "Power Outage",
-                "code": "POWER-001",
-                "department_id": 1,
-                "keywords": ["power", "electricity", "outage", "blackout", "supply", "current", "voltage"],
-                "priority": "high"
+                "code": "ELC",
+                "name": "Electricity Department",
+                "keywords": ["power", "electricity", "voltage", "current", "poles", "street light", "streetlight", "dark", "no light", "wire", "transformer"]
             },
             {
-                "id": 3,
-                "name": "Water Leakage",
-                "code": "WATER-001",
-                "department_id": 2,
-                "keywords": ["water", "leak", "leakage", "pipe", "burst", "overflow", "dripping"],
-                "priority": "high"
+                "code": "WTR",
+                "name": "Water Supply Department",
+                "keywords": ["water", "leakage", "supply", "pipe", "tap", "drinking water", "dirty water", "pressure", "no water", "tanker"]
             },
             {
-                "id": 4,
-                "name": "No Water Supply",
-                "code": "WATER-002",
-                "department_id": 2,
-                "keywords": ["water", "supply", "tap", "shortage", "no water", "dry"],
-                "priority": "high"
+                "code": "PWD",
+                "name": "Public Works Department",
+                "keywords": ["road", "bridge", "pothole", "drainage", "construction", "repair", "footpath", "pavement", "building", "flyover"]
             },
             {
-                "id": 5,
-                "name": "Pothole on Road",
-                "code": "ROAD-001",
-                "department_id": 3,
-                "keywords": ["pothole", "road", "damage", "crater", "hole", "damaged road"],
-                "priority": "medium"
+                "code": "POL",
+                "name": "Police Department",
+                "keywords": ["theft", "crime", "police", "safety", "traffic", "law", "order", "harassment", "cyber", "robbery", "assault", "stole", "steal", "pickpocket"]
             },
             {
-                "id": 6,
-                "name": "Garbage Not Collected",
-                "code": "GARB-001",
-                "department_id": 4,
-                "keywords": ["garbage", "waste", "trash", "collection", "not collected", "rubbish"],
-                "priority": "medium"
+                "code": "FIR",
+                "name": "Fire & Emergency Services",
+                "keywords": ["fire", "smoke", "flame", "burn", "blast", "emergency", "rescue", "cylinder", "explosion"]
             },
             {
-                "id": 7,
-                "name": "Overflowing Dustbin",
-                "code": "GARB-002",
-                "department_id": 4,
-                "keywords": ["dustbin", "overflow", "bin", "full", "overflowing"],
-                "priority": "low"
+                "code": "HLT",
+                "name": "Health Department",
+                "keywords": ["hospital", "doctor", "medicine", "health", "disease", "food poisoning", "clinic", "ambulance", "vaccination", "dengue", "malaria"]
             },
             {
-                "id": 8,
-                "name": "Stray Animals",
-                "code": "HEALTH-001",
-                "department_id": 5,
-                "keywords": ["dog", "stray", "animal", "bite", "dogs", "animals"],
-                "priority": "medium"
+                "code": "WLF",
+                "name": "Women & Child Welfare",
+                "keywords": ["women", "child", "domestic violence", "dowry", "harassment", "abuse", "protection", "kid", "shelter"]
             },
             {
-                "id": 9,
-                "name": "Mosquito Menace",
-                "code": "HEALTH-002",
-                "department_id": 5,
-                "keywords": ["mosquito", "dengue", "malaria", "insect", "mosquitoes", "breeding"],
-                "priority": "medium"
+                "code": "SOC",
+                "name": "Social Welfare Department",
+                "keywords": ["pension", "scholarship", "subsidy", "welfare", "scheme", "senior citizen", "disability", "caste", "ration"]
             },
             {
-                "id": 10,
-                "name": "Illegal Parking",
-                "code": "POLICE-001",
-                "department_id": 6,
-                "keywords": ["parking", "illegal", "vehicle", "block", "parked", "blocking"],
-                "priority": "low"
+                "code": "EDU",
+                "name": "Education Department",
+                "keywords": ["school", "college", "teacher", "student", "admission", "fees", "syllabus", "exam", "education", "books", "university"]
             },
             {
-                "id": 11,
-                "name": "Noise Pollution",
-                "code": "ENV-001",
-                "department_id": 8,
-                "keywords": ["noise", "sound", "loud", "pollution", "disturbance"],
-                "priority": "low"
+                "code": "EMP",
+                "name": "Employment & Skill Development",
+                "keywords": ["job", "employment", "unemployment", "skill", "training", "vacancy", "work", "recruitment", "placement"]
             },
             {
-                "id": 12,
-                "name": "Tree Fallen",
-                "code": "ENV-002",
-                "department_id": 8,
-                "keywords": ["tree", "fallen", "branch", "blocking", "fell", "collapse"],
-                "priority": "high"
+                "code": "TRN",
+                "name": "Transport Department",
+                "keywords": ["bus", "transport", "license", "registration", "vehicle", "driver", "ticket", "fare", "rto", "traffic signal"]
+            },
+            {
+                "code": "URB",
+                "name": "Urban Development Authority",
+                "keywords": ["zoning", "layout", "plot", "approval", "encroachment", "planning", "urban", "khata", "property", "illegal construction"]
             }
         ]
     
     def preprocess_text(self, text: str) -> str:
-        """Clean and normalize text"""
+        """Normalize text for consistent matching"""
         text = text.lower()
-        text = re.sub(r'[^a-z0-9\s]', '', text)
+        # Remove special chars but keep spaces
+        text = re.sub(r'[^a-z0-9\s]', ' ', text)
+        # Collapse multiple spaces
+        text = re.sub(r'\s+', ' ', text).strip()
         return text
-    
-    def keyword_matching(self, text: str) -> List[Tuple[Dict, float, List[str]]]:
-        """
-        Match keywords from categories
-        Returns: List of (category, confidence, matched_keywords)
-        """
-        text = self.preprocess_text(text)
-        matches = []
-        
-        for category in self.categories:
-            matched_keywords = []
-            keyword_count = 0
-            
-            for keyword in category['keywords']:
-                keyword_lower = keyword.lower()
-                if keyword_lower in text:
-                    matched_keywords.append(keyword)
-                    keyword_count += 1
-            
-            if keyword_count > 0:
-                # Calculate confidence based on keyword matches
-                confidence = min(keyword_count / len(category['keywords']), 1.0)
-                
-                # Boost confidence if multiple keywords match
-                if keyword_count >= 2:
-                    confidence = min(confidence * 1.3, 0.95)
-                
-                matches.append((category, confidence, matched_keywords))
-        
-        # Sort by confidence
-        matches.sort(key=lambda x: x[1], reverse=True)
-        return matches
-    
+
     def classify(self, text: str, title: str = "") -> Dict:
         """
-        Main classification method
+        Analyze text and return predicted department with confidence score.
         """
-        # Combine title and text for better context
+        # Combine title and body for better context
         full_text = f"{title} {text}"
+        normalized_text = self.preprocess_text(full_text)
         
-        matches = self.keyword_matching(full_text)
+        matches = []
         
+        for rule in self.department_rules:
+            matched_keywords = []
+            
+            for keyword in rule['keywords']:
+                # Look for whole word matches to avoid substrings (e.g., 'car' in 'scar')
+                # Using regex word boundary \b
+                if re.search(r'\b' + re.escape(keyword) + r'\b', normalized_text):
+                    matched_keywords.append(keyword)
+            
+            if matched_keywords:
+                # Calculate confidence
+                # Base score: 0.5 for 1 keyword
+                # +0.2 for each additional keyword
+                # Cap at 0.95 (leave 0.05 uncertainty)
+                score = 0.5 + (len(matched_keywords) - 1) * 0.2
+                confidence = min(score, 0.95)
+                
+                matches.append({
+                    "department_code": rule['code'],
+                    "department_name": rule['name'],
+                    "confidence": confidence,
+                    "matched_keywords": matched_keywords
+                })
+        
+        # If no matches found
         if not matches:
-            # No matches - needs manual review
             return {
-                "category_id": None,
-                "category_name": "Unclassified",
+                "department_code": None,
+                "department_name": None,
                 "confidence": 0.0,
-                "department_id": None,
-                "keywords_matched": [],
+                "explanation": "No relevant keywords found in the complaint text.",
                 "needs_manual_review": True
             }
+            
+        # Sort matches by confidence (highest first)
+        matches.sort(key=lambda x: x['confidence'], reverse=True)
+        top_match = matches[0]
         
-        # Get top match
-        top_category, confidence, keywords = matches[0]
+        # Generate explanation
+        keywords_str = ", ".join(f"'{k}'" for k in top_match['matched_keywords'])
+        explanation = (
+            f"Classified as {top_match['department_name']} ({top_match['department_code']}) "
+            f"because it contains keywords: {keywords_str}."
+        )
         
-        # Check if confidence is above threshold
-        needs_manual_review = confidence < self.confidence_threshold
+        needs_review = top_match['confidence'] < self.confidence_threshold
         
         return {
-            "category_id": top_category['id'],
-            "category_name": top_category['name'],
-            "confidence": round(confidence, 4),
-            "department_id": top_category['department_id'],
-            "keywords_matched": keywords,
-            "needs_manual_review": needs_manual_review
+            "department_code": top_match['department_code'],
+            "department_name": top_match['department_name'],
+            "confidence": top_match['confidence'],
+            "explanation": explanation,
+            "needs_manual_review": needs_review
         }
-    
-    def get_similar_categories(self, text: str, top_k: int = 3) -> List[Dict]:
-        """Get top K similar categories for suggestions"""
-        matches = self.keyword_matching(text)
-        return [
-            {
-                "category_id": cat['id'],
-                "category_name": cat['name'],
-                "confidence": conf,
-                "keywords_matched": kw
-            }
-            for cat, conf, kw in matches[:top_k]
-        ]

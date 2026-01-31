@@ -1,11 +1,11 @@
 import pika
 import json
 import os
-from classifier import ComplaintClassifier
+from classifier import ComplaintClassificationAgent
 
-def start_consumer(classifier: ComplaintClassifier):
+def start_consumer(agent: ComplaintClassificationAgent):
     """
-    RabbitMQ consumer that listens for new complaints and classifies them
+    RabbitMQ consumer that listens for new complaints and classifies them using the AI Agent.
     """
     rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://pulsegov:pulsegov123@localhost:5672')
     
@@ -26,20 +26,19 @@ def start_consumer(classifier: ComplaintClassifier):
                 print(f"📥 Received complaint: {data.get('complaint_id')}")
                 
                 # Classify the complaint
-                result = classifier.classify(
+                result = agent.classify(
                     text=data.get('description', ''),
                     title=data.get('title', '')
                 )
                 
-                # Prepare classified data
+                # Prepare classified data (Standardized Output)
+                # merging original data with classification result
                 classified_data = {
-                    'complaintId': data['complaintId'],
-                    'complaint_id': data['complaint_id'],
-                    'category_id': result['category_id'],
-                    'category_name': result['category_name'],
-                    'category_confidence': result['confidence'],
-                    'department_id': result['department_id'],
-                    'keywords_matched': result['keywords_matched'],
+                    **data,  # Pass through original data
+                    'department_code': result['department_code'],
+                    'department_name': result['department_name'],
+                    'confidence': result['confidence'],
+                    'explanation': result['explanation'],
                     'needs_manual_review': result['needs_manual_review']
                 }
                 
@@ -51,7 +50,7 @@ def start_consumer(classifier: ComplaintClassifier):
                     properties=pika.BasicProperties(delivery_mode=2)  # persistent
                 )
                 
-                print(f"✅ Classified: {data['complaint_id']} -> {result['category_name']} ({result['confidence']:.2f})")
+                print(f"✅ Classified: {data['complaint_id']} -> {result['department_name']} ({result['confidence']:.2f})")
                 
                 # Acknowledge message
                 ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -65,7 +64,7 @@ def start_consumer(classifier: ComplaintClassifier):
         channel.basic_qos(prefetch_count=1)
         channel.basic_consume(queue='complaint.created', on_message_callback=callback)
         
-        print('🎧 Waiting for complaints to classify...')
+        print('🤖 AI Agent active! Waiting for complaints...')
         channel.start_consuming()
         
     except Exception as e:
