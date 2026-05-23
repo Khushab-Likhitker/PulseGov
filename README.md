@@ -1,6 +1,6 @@
 # PulseGov - AI-Powered Grievance Management Platform
 
-![PulseGov](https://img.shields.io/badge/AI-Powered-blue) ![Microservices](https://img.shields.io/badge/Architecture-Microservices-green) ![Status](https://img.shields.io/badge/Status-Hackathon%20Ready-orange)
+![PulseGov](https://img.shields.io/badge/AI-Powered-blue) ![Microservices](https://img.shields.io/badge/Architecture-Microservices-green) ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
 ## 🎯 Project Identity
 
@@ -66,7 +66,7 @@
 
 ```bash
 # Navigate to project
-cd d:/GDG1/pulsegov
+cd pulsegov
 
 # Start all services
 docker-compose up -d
@@ -255,39 +255,7 @@ curl http://localhost:8001/health
 curl http://localhost:8002/health
 ```
 
----
 
-## 🎯 Hackathon Presentation Points
-
-1. **Technical Complexity**
-   - Event-driven microservices architecture
-   - AI/ML integration (classification + predictive analytics)
-   - Graph database for intelligent suggestions
-   - Blockchain-ready audit trail
-
-2. **Innovation**
-   - Resolution Intelligence Network is genuinely novel
-   - No other grievance system predicts SLA breaches proactively
-   - Graph-based case matching is unique
-
-3. **Real-World Impact**
-   - Solves actual governance problems (validated by problem statement)
-   - Scalable to municipal/state/national level
-   - 60% faster resolution times (estimated from AI suggestions)
-
-4. **Completeness**
-   - Full-stack implementation
-   - Production-ready microservices
-   - Beautiful, modern UI
-   - Docker-based deployment
-
-5. **Demo-ability**
-   - Runs completely locally
-   - Visual dashboards with real-time updates
-   - AI suggestions are VISIBLE and impressive
-   - Predictive analytics show clear value
-
----
 
 ## 🚧 Future Enhancements
 
@@ -305,26 +273,10 @@ curl http://localhost:8002/health
 
 ## 📝 License
 
-MIT License - Built for Hackathon
+MIT License
 
 ---
 
 ## 👥 Team
 
 Built with ❤️ by the PulseGov Team
-
----
-
-## 🏆 Why This Wins
-
-✅ **Technical Depth** - Microservices + AI + Graph DB + Blockchain  
-✅ **Innovation** - Resolution Intelligence is genuinely novel  
-✅ **Real Impact** - Solves actual governance problems  
-✅ **Scalability** - Event-driven architecture handles millions  
-✅ **Completeness** - Full-stack with deployment ready  
-✅ **Demo Factor** - Visual, interactive, AI in action  
-✅ **Uniqueness** - No standard CRUD template replication
-
----
-
-**Made for judges who appreciate innovation over iteration 🚀**
