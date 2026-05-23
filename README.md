@@ -270,13 +270,3 @@ curl http://localhost:8002/health
 - [ ] Cross-department collaboration workspace
 
 ---
-
-## 📝 License
-
-MIT License
-
----
-
-## 👥 Team
-
-Built with ❤️ by the PulseGov Team
