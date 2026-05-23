@@ -5,6 +5,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import complaintRoutes from './routes/complaint.routes';
+import authRoutes from './routes/auth.routes';
 import { initializeDatabase } from './config/database';
 import { initializeRedis } from './config/redis';
 import { initializeRabbitMQ } from './config/rabbitmq';
@@ -29,6 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/auth', authRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', service: 'complaint-service' });

@@ -105,11 +105,11 @@ class SmartRouter {
     async getDepartmentIdByCode(code: string): Promise<string | null> {
         try {
             const result = await db.query(
-                "SELECT department_id FROM departments WHERE department_code = $1",
+                "SELECT id FROM departments WHERE code = $1",
                 [code]
             );
             if (result.rows.length > 0) {
-                return result.rows[0].department_id;
+                return result.rows[0].id.toString();
             }
             return null;
         } catch (error) {
@@ -242,22 +242,36 @@ async function startConsumer() {
     }
 }
 
+// Helper for resilient connections
+async function connectWithRetry(name: string, connectFn: () => Promise<any>, retries = 5, delay = 5000) {
+    while (retries > 0) {
+        try {
+            await connectFn();
+            console.log(`✅ ${name} connected`);
+            return;
+        } catch (error) {
+            retries--;
+            console.error(`❌ ${name} connection failed. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+            if (retries === 0) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 // Initialize
 async function initialize() {
     try {
         // PostgreSQL
         db = new Pool({ connectionString: process.env.DATABASE_URL });
-        const res = await db.query('SELECT NOW()');
-        console.log('✅ PostgreSQL connected at', res.rows[0].now);
+        await connectWithRetry('PostgreSQL', () => db.query('SELECT NOW()'));
 
         // Redis
         redis = createClient({ url: process.env.REDIS_URL });
         redis.on('error', (err) => console.error('Redis Client Error', err));
-        await redis.connect();
-        console.log('✅ Redis connected');
+        await connectWithRetry('Redis', () => redis.connect());
 
         // RabbitMQ
-        await startConsumer();
+        await connectWithRetry('RabbitMQ', () => startConsumer());
 
         const PORT = process.env.PORT || 3002;
         app.listen(PORT, () => {
@@ -265,7 +279,8 @@ async function initialize() {
         });
     } catch (error) {
         console.error('❌ Initialization failed:', error);
-        process.exit(1);
+        // Retry entire initialization after delay
+        setTimeout(initialize, 10000);
     }
 }
 

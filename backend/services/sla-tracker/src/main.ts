@@ -249,7 +249,7 @@ async function startConsumer() {
 
         await rabbitChannel.assertQueue('complaint.routed', { durable: true });
 
-        rabbitChannel.consume('complaint.routed', async (msg) => {
+        rabbitChannel.consume('complaint.routed', async (msg: amqp.ConsumeMessage | null) => {
             if (!msg) return;
 
             try {
@@ -314,18 +314,32 @@ cron.schedule('*/5 * * * *', async () => {
     }
 });
 
+// Helper for resilient connections
+async function connectWithRetry(name: string, connectFn: () => Promise<any>, retries = 5, delay = 5000) {
+    while (retries > 0) {
+        try {
+            await connectFn();
+            console.log(`✅ ${name} connected`);
+            return;
+        } catch (error) {
+            retries--;
+            console.error(`❌ ${name} connection failed. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+            if (retries === 0) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 // Initialize
 async function initialize() {
     try {
         db = new Pool({ connectionString: process.env.DATABASE_URL });
-        await db.query('SELECT NOW()');
-        console.log('✅ PostgreSQL connected');
+        await connectWithRetry('PostgreSQL', () => db.query('SELECT NOW()'));
 
         redis = createClient({ url: process.env.REDIS_URL });
-        await redis.connect();
-        console.log('✅ Redis connected');
+        await connectWithRetry('Redis', () => redis.connect());
 
-        await startConsumer();
+        await connectWithRetry('RabbitMQ', () => startConsumer());
 
         const PORT = process.env.PORT || 3003;
         app.listen(PORT, () => {
@@ -333,16 +347,17 @@ async function initialize() {
         });
     } catch (error) {
         console.error('❌ Initialization failed:', error);
-        process.exit(1);
+        // Retry entire initialization after delay
+        setTimeout(initialize, 10000);
     }
 }
 
-app.get('/health', (req, res) => {
+app.get('/health', (req: express.Request, res: express.Response) => {
     res.json({ status: 'healthy', service: 'sla-tracker' });
 });
 
 // Get SLA status for a complaint
-app.get('/sla/:complaintId', async (req, res) => {
+app.get('/sla/:complaintId', async (req: express.Request, res: express.Response) => {
     try {
         const complaintId = parseInt(req.params.complaintId);
         const utilization = await slaTracker.calculateSLAUtilization(complaintId);

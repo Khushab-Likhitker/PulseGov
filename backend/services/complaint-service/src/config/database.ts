@@ -15,8 +15,9 @@ export async function initializeDatabase() {
         console.log('✅ PostgreSQL connected');
         client.release();
     } catch (error) {
-        console.error('❌ PostgreSQL connection failed:', error);
-        throw error;
+        console.error('❌ PostgreSQL connection failed. Retrying in 5s...', error);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return initializeDatabase();
     }
 }
 

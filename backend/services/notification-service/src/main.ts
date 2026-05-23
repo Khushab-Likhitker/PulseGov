@@ -204,13 +204,28 @@ async function startConsumer() {
     }
 }
 
+// Helper for resilient connections
+async function connectWithRetry(name: string, connectFn: () => Promise<any>, retries = 5, delay = 5000) {
+    while (retries > 0) {
+        try {
+            await connectFn();
+            console.log(`✅ ${name} connected`);
+            return;
+        } catch (error) {
+            retries--;
+            console.error(`❌ ${name} connection failed. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+            if (retries === 0) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 // Initialize
 async function initialize() {
     try {
         // Redis
         redis = createClient({ url: process.env.REDIS_URL });
-        await redis.connect();
-        console.log('✅ Redis connected');
+        await connectWithRetry('Redis', () => redis.connect());
 
         // Email transporter
         emailTransporter = nodemailer.createTransport({
@@ -225,7 +240,7 @@ async function initialize() {
         console.log('✅ Email transporter configured');
 
         // RabbitMQ
-        await startConsumer();
+        await connectWithRetry('RabbitMQ', () => startConsumer());
 
         const PORT = process.env.PORT || 3004;
         app.listen(PORT, () => {
@@ -233,7 +248,8 @@ async function initialize() {
         });
     } catch (error) {
         console.error('❌ Initialization failed:', error);
-        process.exit(1);
+        // Retry entire initialization after delay
+        setTimeout(initialize, 10000);
     }
 }
 

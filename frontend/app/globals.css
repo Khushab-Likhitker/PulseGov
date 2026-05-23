@@ -1,31 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white min-h-screen;
+    background: #f8f9fa;
+    font-family: 'Noto Sans', sans-serif;
+    color: #1a365d;
+    min-height: 100vh;
   }
 }
 
-@layer components {
-  .glass-card {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl;
-  }
-  
-  .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105;
-  }
-  
-  .btn-secondary {
-    @apply bg-white/10 hover:bg-white/20 backdrop-blur text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 border border-white/20;
-  }
-  
-  .input-field {
-    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-300;
-  }
-  
-  .status-badge {
-    @apply px-4 py-1.5 rounded-full text-sm font-medium;
-  }
+/* Indian Tricolor Header */
+.tricolor-header {
+  background: linear-gradient(to right,
+      #FF9933 33.33%,
+      #FFFFFF 33.33% 66.66%,
+      #128807 66.66%);
+  height: 8px;
+  width: 100%;
 }
+
+/* Government Color Scheme */
+.gov-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.gov-btn-primary {
+  @apply bg-blue-800 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105;
+}
+
+.gov-btn-secondary {
+  @apply bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-3 px-6 rounded-lg transition-all duration-300 border border-slate-300;
+}
+
+/* Status badges */
+.status-badge-gov {
+  @apply px-3 py-1 rounded-full text-xs font-semibold uppercase;
+}
+
+.status-pending { background: #fef3c7; color: #d97706; }
+.status-assigned { background: #dbeafe; color: #2563eb; }
+.status-resolved { background: #d1fae5; color: #059669; }
+
+/* Emblem styling */
+.gov-emblem {
+  width: 60px;
+  height: 60px;
+  background: #1e40af;
+  border-radius: 50%;
+  @apply flex items-center justify-center text-white text-2xl font-bold;
+}
+
+.gov-footer {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-top: 4px solid #1e40af;
+}
+
+/* Form Styles */
+.gov-input {
+  @apply w-full bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none focus:border-blue-500;
+}
+
+/* Maintain compatibility with previous styles just in case */
+.glass-card { @apply gov-card p-6; }
+.btn-primary { @apply gov-btn-primary; }
+.input-field { @apply gov-input; }
+.status-badge { @apply status-badge-gov; }

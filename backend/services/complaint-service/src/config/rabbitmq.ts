@@ -5,7 +5,7 @@ let connection: any;
 
 export async function initializeRabbitMQ() {
     try {
-        connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672') as unknown as amqp.Connection;
+        connection = await amqp.connect(process.env.RABBITMQ_URL || 'amqp://localhost:5672');
         channel = await connection.createChannel();
 
         // Declare exchanges
@@ -26,8 +26,9 @@ export async function initializeRabbitMQ() {
 
         console.log('✅ RabbitMQ connected');
     } catch (error) {
-        console.error('❌ RabbitMQ connection failed:', error);
-        throw error;
+        console.error('❌ RabbitMQ connection failed. Retrying in 5s...', error);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return initializeRabbitMQ();
     }
 }
 

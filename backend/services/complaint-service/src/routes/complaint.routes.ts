@@ -4,10 +4,16 @@ import {
     createComplaint,
     getComplaint,
     getComplaints,
+    getOfficerComplaints,
     updateComplaintStatus,
     resolveComplaint,
+    escalateComplaint,
     getComplaintHistory,
-    uploadAttachment
+    uploadAttachment,
+    getOfficerAnalytics,
+    getDepartments,
+    getCategories,
+    prepareOfficerDashboard
 } from '../controllers/complaint.controller';
 
 const router = Router();
@@ -29,9 +35,15 @@ const upload = multer({
 // Routes
 router.post('/', upload.array('attachments', 5), createComplaint);
 router.get('/', getComplaints);
+router.get('/officer/list', getOfficerComplaints);
+router.get('/analytics/officer', getOfficerAnalytics);
+router.post('/prepare', prepareOfficerDashboard);
+router.get('/master/departments', getDepartments);
+router.get('/master/categories', getCategories);
 router.get('/:id', getComplaint);
 router.patch('/:id/status', updateComplaintStatus);
 router.post('/:id/resolve', resolveComplaint);
+router.post('/:id/escalate', escalateComplaint);
 router.get('/:id/history', getComplaintHistory);
 router.post('/:id/attachments', upload.single('file'), uploadAttachment);
 

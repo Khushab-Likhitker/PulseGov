@@ -182,7 +182,7 @@ class ResolutionIntelligence {
                 { complaintId }
             );
 
-            const similarComplaints: SimilarComplaint[] = result.records.map(record => ({
+            const similarComplaints: SimilarComplaint[] = result.records.map((record: any) => ({
                 complaint_id: record.get('complaint_id'),
                 title: record.get('title'),
                 description: record.get('description'),
@@ -260,23 +260,27 @@ class ResolutionIntelligence {
             );
 
             // Format for graph visualization
-            const nodes = new Set();
+            const nodes = new Map();
             const edges: any[] = [];
 
-            result.records.forEach(record => {
+            result.records.forEach((record: any) => {
                 const complaint = record.get('c');
-                nodes.add({
-                    id: complaint.properties.id,
-                    label: complaint.properties.complaint_id,
-                    resolved: record.get('r') !== null
-                });
+                if (!nodes.has(complaint.properties.id)) {
+                    nodes.set(complaint.properties.id, {
+                        id: complaint.properties.id,
+                        label: complaint.properties.complaint_id,
+                        resolved: record.get('r') !== null
+                    });
+                }
 
                 const similar = record.get('other');
                 if (similar) {
-                    nodes.add({
-                        id: similar.properties.id,
-                        label: similar.properties.complaint_id
-                    });
+                    if (!nodes.has(similar.properties.id)) {
+                        nodes.set(similar.properties.id, {
+                            id: similar.properties.id,
+                            label: similar.properties.complaint_id
+                        });
+                    }
 
                     const simRel = record.get('sim');
                     edges.push({
@@ -288,7 +292,80 @@ class ResolutionIntelligence {
             });
 
             return {
-                nodes: Array.from(nodes),
+                nodes: Array.from(nodes.values()),
+                edges
+            };
+        } finally {
+            await session.close();
+        }
+    }
+
+    /**
+     * Get officer's complaint network (assigned complaints and their relationships)
+     */
+    async getOfficerNetwork(officerId: number) {
+        const session: Session = neo4jDriver.session();
+        try {
+            const result = await session.run(
+                `
+                MATCH (c:Complaint {assigned_officer_id: $officerId})
+                OPTIONAL MATCH (c)-[sim:SIMILAR_TO]-(other:Complaint)
+                OPTIONAL MATCH (c)-[:SUBMITTED_BY]->(cit:Citizen)
+                RETURN c, sim, other, cit
+                LIMIT 100
+                `,
+                { officerId }
+            );
+
+            const nodes = new Map();
+            const edges: any[] = [];
+
+            result.records.forEach((record: any) => {
+                const c = record.get('c');
+                if (!nodes.has(c.properties.id)) {
+                    nodes.set(c.properties.id, {
+                        id: c.properties.id,
+                        label: c.properties.complaint_id,
+                        type: 'complaint',
+                        status: c.properties.status,
+                        priority: c.properties.priority
+                    });
+                }
+
+                const other = record.get('other');
+                if (other) {
+                    if (!nodes.has(other.properties.id)) {
+                        nodes.set(other.properties.id, {
+                            id: other.properties.id,
+                            label: other.properties.complaint_id,
+                            type: 'complaint',
+                            status: other.properties.status
+                        });
+                    }
+                    edges.push({
+                        from: c.properties.id,
+                        to: other.properties.id,
+                        type: 'similarity',
+                        weight: record.get('sim').properties.score
+                    });
+                }
+
+                const cit = record.get('cit');
+                if (cit) {
+                    const citId = `cit_${cit.properties.id}`;
+                    if (!nodes.has(citId)) {
+                        nodes.set(citId, {
+                            id: citId,
+                            label: cit.properties.name,
+                            type: 'citizen'
+                        });
+                    }
+                    edges.push({ from: c.properties.id, to: citId, type: 'citizen_link' });
+                }
+            });
+
+            return {
+                nodes: Array.from(nodes.values()),
                 edges
             };
         } finally {
@@ -309,7 +386,7 @@ async function startConsumer() {
         await rabbitChannel.assertQueue('complaint.resolved', { durable: true });
 
         // Add routed complaints to graph
-        rabbitChannel.consume('complaint.routed', async (msg) => {
+        rabbitChannel.consume('complaint.routed', async (msg: amqp.ConsumeMessage | null) => {
             if (!msg) return;
 
             try {
@@ -336,7 +413,7 @@ async function startConsumer() {
         });
 
         // Add resolutions to graph
-        rabbitChannel.consume('complaint.resolved', async (msg) => {
+        rabbitChannel.consume('complaint.resolved', async (msg: amqp.ConsumeMessage | null) => {
             if (!msg) return;
 
             try {
@@ -379,12 +456,12 @@ async function startConsumer() {
 }
 
 // API Routes
-app.get('/health', (req, res) => {
+app.get('/health', (req: express.Request, res: express.Response) => {
     res.json({ status: 'healthy', service: 'resolution-intelligence' });
 });
 
 // Get AI suggestions for a complaint
-app.get('/suggestions/:complaintId', async (req, res) => {
+app.get('/suggestions/:complaintId', async (req: express.Request, res: express.Response) => {
     try {
         const complaintId = parseInt(req.params.complaintId);
         const result = await intelligence.getSuggestions(complaintId);
@@ -395,7 +472,7 @@ app.get('/suggestions/:complaintId', async (req, res) => {
 });
 
 // Get complaint network visualization
-app.get('/network/:categoryId', async (req, res) => {
+app.get('/network/:categoryId', async (req: express.Request, res: express.Response) => {
     try {
         const categoryId = parseInt(req.params.categoryId);
         const network = await intelligence.getComplaintNetwork(categoryId);
@@ -405,13 +482,65 @@ app.get('/network/:categoryId', async (req, res) => {
     }
 });
 
+// Get officer's complaint network
+app.get('/network/officer/:officerId', async (req: express.Request, res: express.Response) => {
+    try {
+        const officerId = parseInt(req.params.officerId);
+        const network = await intelligence.getOfficerNetwork(officerId);
+        res.json({ success: true, network });
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+// Get citizen's complaint history network
+app.get('/network/citizen/:citizenId', async (req: express.Request, res: express.Response) => {
+    try {
+        const citizenId = parseInt(req.params.citizenId);
+        const session = neo4jDriver.session();
+        const result = await session.run(
+            `
+            MATCH (u:Citizen {id: $citizenId})-[:SUBMITTED_BY]-(c:Complaint)
+            OPTIONAL MATCH (c)-[:BELONGS_TO]->(cat:Category)
+            RETURN c, cat
+            `,
+            { citizenId }
+        );
+
+        const nodes = result.records.map(record => ({
+            complaint: record.get('c').properties,
+            category: record.get('cat') ? record.get('cat').properties : null
+        }));
+
+        res.json({ success: true, history: nodes });
+        await session.close();
+    } catch (error: any) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Initialize
+// Helper for resilient connections
+async function connectWithRetry(name: string, connectFn: () => Promise<any>, retries = 5, delay = 5000) {
+    while (retries > 0) {
+        try {
+            await connectFn();
+            console.log(`✅ ${name} connected`);
+            return;
+        } catch (error) {
+            retries--;
+            console.error(`❌ ${name} connection failed. Retrying in ${delay / 1000}s... (${retries} retries left)`);
+            if (retries === 0) throw error;
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+}
+
 // Initialize
 async function initialize() {
     try {
         // PostgreSQL
         db = new Pool({ connectionString: process.env.DATABASE_URL });
-        await db.query('SELECT NOW()');
-        console.log('✅ PostgreSQL connected');
+        await connectWithRetry('PostgreSQL', () => db.query('SELECT NOW()'));
 
         // Neo4j
         neo4jDriver = neo4j.driver(
@@ -421,11 +550,10 @@ async function initialize() {
                 process.env.NEO4J_PASSWORD || 'password'
             )
         );
-        await neo4jDriver.verifyConnectivity();
-        console.log('✅ Neo4j connected');
+        await connectWithRetry('Neo4j', () => neo4jDriver.verifyConnectivity());
 
         // RabbitMQ
-        await startConsumer();
+        await connectWithRetry('RabbitMQ', () => startConsumer());
 
         const PORT = process.env.PORT || 8002;
         app.listen(PORT, () => {
@@ -433,7 +561,8 @@ async function initialize() {
         });
     } catch (error) {
         console.error('❌ Initialization failed:', error);
-        process.exit(1);
+        // Don't exit immediately, maybe it's a transient failure during docker boot
+        setTimeout(initialize, 10000);
     }
 }
 

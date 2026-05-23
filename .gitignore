@@ -10,7 +10,12 @@ __pycache__/
 # Build
 dist/
 build/
+.next/
+*.tsbuildinfo
 *.egg-info/
+
+# Uploads (multer)
+uploads/
 
 # Logs
 *.log
